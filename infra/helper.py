@@ -32,6 +32,7 @@ import time
 
 OSSFUZZ_DIR = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
 BUILD_DIR = os.path.join(OSSFUZZ_DIR, 'build')
+_docker_network = "default"
 
 BASE_IMAGES = [
     'gcr.io/oss-fuzz-base/base-image',
@@ -52,6 +53,8 @@ def main():
 
   parser = argparse.ArgumentParser('helper.py', description='oss-fuzz helpers')
   subparsers = parser.add_subparsers(dest='command')
+  parser.add_argument('--docker_network', default='default',
+      help='network argument to pass to docker')
 
   generate_parser = subparsers.add_parser(
       'generate', help='Generate files for new project.')
@@ -111,6 +114,8 @@ def main():
                                              help='Pull base images.')
 
   args = parser.parse_args()
+  global _docker_network
+  _docker_network = args.docker_network;
   if args.command == 'generate':
     return generate(args)
   elif args.command == 'build_image':
@@ -147,7 +152,7 @@ def _check_project_exists(project_name):
 
 def _check_fuzzer_exists(project_name, fuzzer_name):
   """Checks if a fuzzer exists."""
-  command = ['docker', 'run', '--rm']
+  command = ['docker', 'run', '--network', _docker_network, '--rm']
   command.extend(['-v', '%s:/out' % os.path.join(BUILD_DIR, 'out', project_name)])
   command.append('ubuntu:16.04')
 
@@ -217,7 +222,7 @@ def _build_image(image_name, no_cache=False, pull=False):
 
 def docker_run(run_args, print_output=True):
   """Call `docker run`."""
-  command = ['docker', 'run', '--rm', '-i', '--privileged']
+  command = ['docker', 'run', '--network', _docker_network, '--rm', '-i', '--privileged']
   command.extend(run_args)
 
   print('Running:', _get_command_string(command))
@@ -235,7 +240,7 @@ def docker_run(run_args, print_output=True):
 
 def docker_build(build_args, pull=False):
   """Call `docker build`."""
-  command = ['docker', 'build']
+  command = ['docker', 'build', '--network', _docker_network]
   if pull:
     command.append('--pull')
 
@@ -300,7 +305,7 @@ def build_fuzzers(args):
     env += args.e
 
   command = (
-      ['docker', 'run', '--rm', '-i', '--cap-add', 'SYS_PTRACE'] +
+      ['docker', 'run', '--network', _docker_network, '--rm', '-i', '--cap-add', 'SYS_PTRACE'] +
       sum([['-e', v] for v in env], [])
   )
   if args.source_path:
